@@ -3,16 +3,18 @@
     python scripts/train_one_day.py --model arx --ticker BAC --date 20261014
 
 The day is cut at --splits (New York time) into train, val and test. Targets whose horizon
-reaches into the next segment are masked, so no segment sees prices from a later one.
+reaches into the next segment are masked, so no segment sees prices from a later one. Delta t is
+computed from the same day, which looks ahead: acceptable for a smoke test only.
 """
 import argparse
-import json
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 
+from deepofi.config import load_config
+from deepofi.data_process.dataset import day_arrays, load_book, load_meta
 from deepofi.data_process.targets import NS_PER_MS, SHORT_HORIZONS
 from deepofi.data_process.windows import INPUT_FEATURES, make_loaders_from_days
 from deepofi.engine import train
@@ -39,11 +41,12 @@ def parse_args():
 
 
 def load_segments(root, ticker, date, input_name, splits):
-    features = np.load(root / "features" / ticker / f"{date}_{input_name}.npy")
-    ts = np.load(root / "features" / ticker / f"{date}_ts.npy")
-    targets = np.load(root / "targets" / ticker / f"{date}_short.npy")
-    mask = np.load(root / "targets" / ticker / f"{date}_mask_short.npy")
-    meta = json.loads((root / "meta" / ticker / f"{date}.json").read_text())
+    config = load_config()
+    book = load_book(root, ticker, date)
+    meta = load_meta(root, ticker, date)
+    meta["delta_t_ms"] = config["targets"]["delta_t_numerator_ms"] / meta["price_changes"]
+    features, targets, mask = day_arrays(book, date, input_name, meta["delta_t_ms"], "short", config)
+    ts = book["ts_event"].to_numpy()
 
     offsets = np.round(np.array(SHORT_HORIZONS) * meta["delta_t_ms"] * NS_PER_MS).astype(np.int64)
     cuts = [pd.Timestamp(f"{date} {time}", tz="America/New_York").value for time in splits.split(",")]
@@ -69,8 +72,7 @@ def main():
         max_samples_per_epoch=None if fit else args.max_samples,
         seed=args.seed,
     )
-    print(f"{args.ticker} {args.date}: delta_t {meta['delta_t_ms']:.0f} ms"
-          f"{' (same day, smoke test only)' if meta.get('delta_t_same_day') else ''}; "
+    print(f"{args.ticker} {args.date}: delta_t {meta['delta_t_ms']:.0f} ms (same day, smoke test only); "
           f"windows train {len(train_loader.dataset):,} / val {len(val_loader.dataset):,} / test {len(test_loader.dataset):,}")
 
     model, params = get_model(args.model, n_features=INPUT_FEATURES[args.input])

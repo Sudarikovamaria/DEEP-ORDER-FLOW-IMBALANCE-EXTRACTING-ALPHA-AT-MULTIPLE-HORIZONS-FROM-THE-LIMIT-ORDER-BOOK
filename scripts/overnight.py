@@ -7,8 +7,9 @@
 2. Every day (selection day included): download, extract the candidates' records to
    data/records/{date}.bin in a worker process while the next day downloads, delete the pcap.
 
-Safe to rerun: finished days are skipped and partial downloads resume. Needs only
-storage.googleapis.com once data/meta/hist_listing_deep.json exists.
+Safe to rerun: finished days are skipped and partial downloads resume. The HIST listing and the
+symbol directory are fetched on the first run if missing; after that only storage.googleapis.com
+is needed.
 """
 import argparse
 import json
@@ -17,7 +18,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from download_days import LISTING, download_with_retries, log
+from download_days import download_with_retries, load_listing, log
 from pilot_day import run_pilot
 
 from deepofi.iex import hist
@@ -66,7 +67,7 @@ def finish(pending, keep_pcap):
 
 def main():
     args = parse_args()
-    files = json.loads(LISTING.read_text())
+    files = load_listing()
     period = sorted(d for d in files if args.start <= d <= args.end)
     days = [args.selection_day] + period
     log(f"Selection day {args.selection_day}, period {period[0]}-{period[-1]}: {len(period)} trading days, "

@@ -22,6 +22,16 @@ def test_common_stock_filter(tmp_path):
     assert is_common_stock(["BAC", "EQNR", "SPY", "O", "PSEC", "UNKNOWN"], directory).tolist() == [True, True, False, True, False, False]
 
 
+def test_symbol_directory_is_downloaded_when_missing(tmp_path):
+    source = tmp_path / "remote.txt"
+    source.write_text(DIRECTORY)
+    path = tmp_path / "meta" / "nasdaqtraded.txt"
+
+    directory = load_symbol_directory(path, url=source.as_uri())
+
+    assert path.exists() and "BAC" in directory.index
+
+
 def test_eligible_rule():
     activity = pd.DataFrame({
         "symbol": ["A", "B", "C", "D"],

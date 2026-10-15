@@ -2,16 +2,24 @@
 
 The symbol directory is Nasdaq Trader's nasdaqtraded.txt (all US-listed securities with an ETF flag).
 """
+import urllib.request
 from pathlib import Path
 
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 SYMBOL_DIRECTORY = PROJECT_ROOT / "data" / "meta" / "nasdaqtraded.txt"
+SYMBOL_DIRECTORY_URL = "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqtraded.txt"
 NOT_COMMON = r"\b(?:Fund|Trust|ETN|ETF|Notes?|Warrants?|Preferred|Units?|Rights?|Depositary Receipt)\b"
 
 
-def load_symbol_directory(path=SYMBOL_DIRECTORY):
+def load_symbol_directory(path=SYMBOL_DIRECTORY, url=SYMBOL_DIRECTORY_URL):
+    """The symbol directory; downloaded to `path` first if it is not there yet."""
+    path = Path(path)
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with urllib.request.urlopen(url, timeout=60) as response:
+            path.write_bytes(response.read())
     directory = pd.read_csv(path, sep="|", dtype=str, keep_default_na=False)
     directory = directory[~directory["Nasdaq Traded"].str.startswith("File Creation Time")]
     directory = directory[directory["Test Issue"] == "N"].drop_duplicates("Symbol")

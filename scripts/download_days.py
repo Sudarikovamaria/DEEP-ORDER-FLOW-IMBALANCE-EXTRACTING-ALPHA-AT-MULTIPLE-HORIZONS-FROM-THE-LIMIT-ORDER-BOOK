@@ -70,16 +70,26 @@ def download_with_retries(entry, dest, max_attempts, log_every):
     raise SystemExit(f"Giving up on {entry['date']} after {max_attempts} attempts")
 
 
+def save_listing():
+    files = hist.list_files()
+    LISTING.parent.mkdir(parents=True, exist_ok=True)
+    LISTING.write_text(json.dumps(files))
+    log(f"Saved listing: {len(files)} days, {min(files)} to {max(files)} -> {LISTING}")
+    return files
+
+
+def load_listing():
+    """The saved HIST listing; fetched from iextrading.com first if it is not there yet."""
+    return json.loads(LISTING.read_text()) if LISTING.exists() else save_listing()
+
+
 def main():
     args = parse_args()
     if args.save_listing:
-        files = hist.list_files()
-        LISTING.parent.mkdir(parents=True, exist_ok=True)
-        LISTING.write_text(json.dumps(files))
-        log(f"Saved listing: {len(files)} days, {min(files)} to {max(files)} -> {LISTING}")
+        save_listing()
         return
 
-    files = json.loads(LISTING.read_text())
+    files = load_listing()
     missing = [d for d in args.dates if d not in files]
     if missing:
         raise SystemExit(f"Not in the saved listing (holiday or not published yet): {missing}")
