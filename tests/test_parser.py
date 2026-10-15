@@ -65,6 +65,22 @@ def pcap(packets):
     return b"".join(out)
 
 
+def pcapng(packets):
+    """Section header with a comment option, one Ethernet interface, Enhanced Packet Blocks."""
+    def block(block_type, body):
+        body += b"\x00" * (-len(body) % 4)
+        length = 12 + len(body)
+        return struct.pack("<II", block_type, length) + body + struct.pack("<I", length)
+
+    comment = b"merged by mergecap"
+    options = struct.pack("<HH", 1, len(comment)) + comment + b"\x00" * (-len(comment) % 4) + struct.pack("<HH", 0, 0)
+    out = [block(0x0A0D0D0A, struct.pack("<IHHq", 0x1A2B3C4D, 1, 0, -1) + options)]
+    out.append(block(1, struct.pack("<HHI", 1, 0, 65535)))
+    for frame in packets:
+        out.append(block(6, struct.pack("<IIIII", 0, 0, 0, len(frame), len(frame)) + frame))
+    return b"".join(out)
+
+
 def write(tmp_path, data, name="day.pcap"):
     path = tmp_path / name
     path.write_bytes(data)
@@ -115,6 +131,17 @@ def test_chunking_and_gzip_do_not_change_output(tmp_path):
     assert len(expected) == 50 * 6
     np.testing.assert_array_equal(small, expected)
     np.testing.assert_array_equal(gzipped, expected)
+
+
+def test_pcapng_matches_pcap(tmp_path):
+    packets = [p for k in range(20) for p in sample_packets(first_seq=1 + 6 * k)]
+    expected = read_records(write(tmp_path, pcap(packets)))
+    data = pcapng(packets)
+    with gzip.open(tmp_path / "day.pcapng.gz", "wb") as f:
+        f.write(data)
+
+    np.testing.assert_array_equal(read_records(write(tmp_path, data, "day.pcapng")), expected)
+    np.testing.assert_array_equal(read_records(tmp_path / "day.pcapng.gz", chunk_bytes=113, out_capacity=5), expected)
 
 
 def test_sequence_gaps_and_duplicates(tmp_path):
