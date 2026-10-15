@@ -10,7 +10,7 @@ from deepofi.data_process.synthetic import SYNTHETIC_ROOT, generate
 from deepofi.data_process.windows import INPUT_FEATURES, list_dates, make_loaders
 from deepofi.engine import train
 from deepofi.evaluation.metrics import calculate_metrics, predict
-from deepofi.models import MODELS, get_model
+from deepofi.models import MODELS, get_fit, get_model
 
 
 def parse_args():
@@ -43,17 +43,21 @@ def main():
 
     model, params = get_model(args.model, n_features=INPUT_FEATURES[args.input])
     print(f"{args.model}: {sum(p.numel() for p in model.parameters()):,} parameters")
-    model, _ = train(
-        model, train_loader, val_loader,
-        learning_rate=args.learning_rate or params["learning_rate"],
-        weights_path=f"{args.model}_{args.input}_synthetic.pt",
-        epochs=args.epochs or params.get("epochs", 50),
-        patience=params.get("patience", 5),
-        device=args.device,
-        save_weights=False,
-    )
+    fit = get_fit(args.model)
+    if fit:
+        model, _ = fit(model, train_loader, val_loader, **params)
+    else:
+        model, _ = train(
+            model, train_loader, val_loader,
+            learning_rate=args.learning_rate or params["learning_rate"],
+            weights_path=f"{args.model}_{args.input}_synthetic.pt",
+            epochs=args.epochs or params.get("epochs", 50),
+            patience=params.get("patience", 5),
+            device=args.device,
+            save_weights=False,
+        )
 
-    y_true, y_pred = predict(model, test_loader, device=args.device)
+    y_true, y_pred = predict(model, test_loader, device="cpu" if fit else args.device)
     y_pred = torch.from_numpy(y_normalizer.inverse(y_pred.double().numpy()))
     metrics = calculate_metrics(y_true, y_pred)
     print("horizon  R2_OS, %")

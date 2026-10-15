@@ -21,7 +21,7 @@ targets:
   n_short_horizons: 10      # h_k = k * delta_t / 5
   long_horizons: [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   delta_tau_ms: 10
-  delta_t_numerator_ms: 2.34e7
+  delta_t_numerator_ms: 23400000.0   # 6.5 h
 
 training:
   window: 100

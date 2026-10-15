@@ -55,12 +55,18 @@ class WindowDataset(Dataset):
         return torch.from_numpy(x), torch.from_numpy(y)
 
 
-def make_loaders(root, ticker, train_dates, val_dates, test_dates, input_name="of", window=100, batch_size=256, max_samples_per_epoch=None, seed=0):
+def make_loaders(root, ticker, train_dates, val_dates, test_dates, input_name="of", **kwargs):
     """Returns train/val/test loaders and the target normalizer for mapping predictions back to dollars."""
-    train_days = [load_day(root, ticker, date, input_name) for date in train_dates]
-    val_days = [load_day(root, ticker, date, input_name) for date in val_dates]
-    test_days = [load_day(root, ticker, date, input_name) for date in test_dates]
+    return make_loaders_from_days(
+        [load_day(root, ticker, date, input_name) for date in train_dates],
+        [load_day(root, ticker, date, input_name) for date in val_dates],
+        [load_day(root, ticker, date, input_name) for date in test_dates],
+        **kwargs,
+    )
 
+
+def make_loaders_from_days(train_days, val_days, test_days, window=100, batch_size=256, max_samples_per_epoch=None, seed=0):
+    """Same as make_loaders for (x, y, mask) segments already in memory; windows never cross segments."""
     x_normalizer = Normalizer().fit([x for x, _, _ in train_days])
     y_normalizer = Normalizer().fit([y[mask.all(axis=1)] for _, y, mask in train_days])
 
