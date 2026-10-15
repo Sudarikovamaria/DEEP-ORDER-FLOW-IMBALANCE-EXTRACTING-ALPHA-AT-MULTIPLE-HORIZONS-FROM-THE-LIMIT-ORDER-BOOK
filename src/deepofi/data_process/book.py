@@ -110,7 +110,9 @@ def reconstruct_book(records, levels=LEVELS):
     order = ["ts_event"] + [f"bid_px_{i}" for i in range(1, levels + 1)] + [f"bid_sz_{i}" for i in range(1, levels + 1)]
     order += [f"ask_px_{i}" for i in range(1, levels + 1)] + [f"ask_sz_{i}" for i in range(1, levels + 1)]
     book = book[order]
-    book["mid"] = (book["bid_px_1"] + book["ask_px_1"]) / 2
+    # From integer prices, so equal mids are bit-identical floats.
+    both_sides = (bid_sz[:, 0] > 0) & (ask_sz[:, 0] > 0)
+    book["mid"] = np.where(both_sides, (bid_px[:, 0] + ask_px[:, 0]) / (2 * PRICE_SCALE), np.nan)
     book["n_levels_bid"] = n_bid.astype(np.int8)
     book["n_levels_ask"] = n_ask.astype(np.int8)
     return book
