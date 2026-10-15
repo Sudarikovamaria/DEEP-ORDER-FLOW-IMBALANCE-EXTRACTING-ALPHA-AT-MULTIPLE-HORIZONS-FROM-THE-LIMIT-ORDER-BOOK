@@ -27,6 +27,24 @@ def test_download_skips_complete_file(tmp_path):
     assert hist.download(entry, dest_dir=tmp_path).read_bytes() == b"abc"
 
 
+def test_download_discards_oversized_partial(tmp_path):
+    source = tmp_path / "source.bin"
+    source.write_bytes(b"abcdef")
+    entry = {"date": "20261013", "feed": "DEEP", "version": "1.0", "link": source.as_uri(), "size": 6}
+    dest = tmp_path / "raw"
+    dest.mkdir()
+    (dest / "20261013_IEXTP1_DEEP1.0.pcap.gz.part").write_bytes(b"abcdefabcdef")
+
+    assert hist.download(entry, dest_dir=dest).read_bytes() == b"abcdef"
+
+
+def test_download_finishes_complete_partial_without_request(tmp_path):
+    entry = {"date": "20261013", "feed": "DEEP", "version": "1.0", "link": "http://invalid.invalid/x", "size": 3}
+    (tmp_path / "20261013_IEXTP1_DEEP1.0.pcap.gz.part").write_bytes(b"abc")
+
+    assert hist.download(entry, dest_dir=tmp_path).read_bytes() == b"abc"
+
+
 def test_download_resumes_partial(tmp_path):
     source = tmp_path / "source.bin"
     source.write_bytes(b"abcdef")

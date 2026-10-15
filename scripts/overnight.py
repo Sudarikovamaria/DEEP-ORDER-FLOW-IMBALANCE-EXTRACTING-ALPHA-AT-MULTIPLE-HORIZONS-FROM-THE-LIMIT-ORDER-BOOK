@@ -12,6 +12,7 @@ symbol directory are fetched on the first run if missing; after that only storag
 is needed.
 """
 import argparse
+import fcntl
 import json
 import shutil
 import time
@@ -27,6 +28,7 @@ from deepofi.iex.deep import extract_day
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 META = PROJECT_ROOT / "data" / "meta"
 CANDIDATES = META / "candidates.json"
+LOCK = PROJECT_ROOT / "data" / "overnight.lock"
 
 
 def parse_args():
@@ -65,8 +67,20 @@ def finish(pending, keep_pcap):
         log(f"{date}: deleted {Path(pcap).name}")
 
 
+def acquire_lock():
+    """Exit if another copy is running: two copies would append to the same partial downloads."""
+    LOCK.parent.mkdir(parents=True, exist_ok=True)
+    handle = LOCK.open("w")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        raise SystemExit("Another overnight.py is already running; stop it first (pgrep -fl overnight.py)")
+    return handle
+
+
 def main():
     args = parse_args()
+    lock = acquire_lock()  # noqa: F841 - held until the process exits
     files = load_listing()
     period = sorted(d for d in files if args.start <= d <= args.end)
     days = [args.selection_day] + period

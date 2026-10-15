@@ -38,7 +38,13 @@ def download(entry, dest_dir=RAW_DIR, chunk_bytes=1 << 22, progress=None):
         return path
 
     offset = partial.stat().st_size if partial.exists() else 0
-    request = urllib.request.Request(entry["link"], headers={"Range": f"bytes={offset}-"} if offset else {})
+    if offset == entry["size"]:
+        partial.rename(path)
+        return path
+    if offset > entry["size"]:  # corrupted, e.g. two downloads appended to the same file
+        partial.unlink()
+        offset = 0
+    request =urllib.request.Request(entry["link"], headers={"Range": f"bytes={offset}-"} if offset else {})
     with urllib.request.urlopen(request, timeout=60) as response:
         if offset and response.status != 206:
             offset = 0
@@ -50,6 +56,9 @@ def download(entry, dest_dir=RAW_DIR, chunk_bytes=1 << 22, progress=None):
                 if progress:
                     progress(done, entry["size"])
 
+    if partial.stat().st_size > entry["size"]:
+        partial.unlink()
+        raise OSError(f"Download of {path.name} grew past {entry['size']} bytes; partial file discarded")
     if partial.stat().st_size != entry["size"]:
         raise OSError(f"Incomplete download {partial}: {partial.stat().st_size} of {entry['size']} bytes")
     partial.rename(path)
