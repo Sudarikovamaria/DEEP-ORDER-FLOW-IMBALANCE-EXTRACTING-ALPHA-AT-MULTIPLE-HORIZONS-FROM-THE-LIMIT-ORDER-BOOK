@@ -10,6 +10,10 @@ session:
 book:
   levels: 10
 
+cleaning:
+  halt_policy: drop_day     # drop_day | drop_period (any Trading Status != 'T' or operational halt)
+  drop_unchanged: true      # drop snapshots whose top-10 state equals the previous kept one
+
 features:
   of_variant: paper         # paper | cont, see DEVIATIONS.md
 
