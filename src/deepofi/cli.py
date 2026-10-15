@@ -1,8 +1,19 @@
 import argparse
+import csv
+from pathlib import Path
 
+import torch
+
+from .config import load_config
+from .data_process.dataset import make_window_loaders
+from .data_process.splits import get_splits
+from .data_process.targets import SHORT_HORIZONS
+from .data_process.windows import INPUT_FEATURES
 from .engine import load_weights, train
-from .evaluation.metrics import evaluate, predict, save_predictions
-from .models import MODELS, get_model
+from .evaluation.metrics import evaluate, get_results_dir, predict, save_predictions
+from .models import MODELS, get_fit, get_model
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def parse_args():
@@ -12,41 +23,109 @@ def parse_args():
     for command in ("train", "evaluate", "predict"):
         command_parser = commands.add_parser(command)
         command_parser.add_argument("--model", choices=MODELS, required=True)
+        command_parser.add_argument("--data-root", type=Path, required=True)
+        command_parser.add_argument("--ticker", type=str.upper, required=True)
+        command_parser.add_argument("--input", choices=INPUT_FEATURES, default="of")
         command_parser.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default="auto")
+        command_parser.add_argument("--save-forecasts", action="store_true")
         if command == "train":
             command_parser.add_argument("--save-weights", action=argparse.BooleanOptionalAction, default=True)
 
     return parser.parse_args()
 
 
-def run_training(args, train_loader, val_loader):
-    model, params = get_model(args.model)
-    model, history = train(
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        learning_rate=params["learning_rate"],
-        weights_path=f"{args.model}.pt",
-        epochs=params.get("epochs", 50),
-        patience=params.get("patience", 5),
-        device=args.device,
-        save_weights=args.save_weights,
+def get_weights_path(args, window_name):
+    return PROJECT_ROOT / "weights" / args.model / args.input / args.ticker / f"{window_name}.pt"
+
+
+def check_files(args, windows):
+    dates = sorted({date for window in windows for part in ("val_dates", "train_dates", "test_dates") for date in window[part]})
+
+    for date in dates:
+        for folder, extension in (("book", "parquet"), ("meta", "json")):
+            path = args.data_root / folder / args.ticker / f"{date}.{extension}"
+            if not path.is_file():
+                raise FileNotFoundError(f"Missing prepared data: {path}")
+
+    if args.command != "train":
+        for window in windows:
+            path = get_weights_path(args, window["name"])
+            if not path.is_file():
+                raise FileNotFoundError(f"Missing weights: {path}")
+
+
+def save_training(model, history, args, window_name):
+    if args.save_weights:
+        path = get_weights_path(args, window_name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        state = {name: value.detach().cpu().clone() for name, value in model.state_dict().items()}
+        torch.save(state, path)
+        print(f"Weights saved: {path}")
+
+    history_path = get_results_dir(args.model, args.input, args.ticker, window_name) / "history.csv"
+    with history_path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=list(history[0]))
+        writer.writeheader()
+        writer.writerows(history)
+    print(f"Training history saved: {history_path}")
+
+
+def run_window(args, window, config):
+    settings = config["training"]
+    torch.manual_seed(settings["seed"])
+    model, params = get_model(args.model, n_features=INPUT_FEATURES[args.input], n_horizons=len(SHORT_HORIZONS))
+    fit = get_fit(args.model)
+    device = "cpu" if fit else args.device
+    print(f"{args.model} | {args.input} | {args.ticker} | {window['name']}")
+
+    loaders, y_normalizer, dt_ms = make_window_loaders(
+        root=args.data_root, ticker=args.ticker,
+        val_dates=window["val_dates"], train_dates=window["train_dates"], test_dates=window["test_dates"],
+        input_name=args.input, config=config,
+        window=settings["window"], batch_size=settings["batch_size"],
+        max_samples_per_epoch=None if fit else settings.get("max_samples_per_epoch"), seed=settings["seed"],
     )
-    return model, history
+    train_loader, val_loader, test_loader = loaders
+    print(f"Delta t: {dt_ms:.3f} ms")
+
+    if args.command == "train":
+        if fit:
+            model, history = fit(model, train_loader, val_loader, **params)
+        else:
+            model, history = train(
+                model, train_loader, val_loader, learning_rate=params["learning_rate"],
+                weights_path=get_weights_path(args, window["name"]),
+                epochs=params.get("epochs", settings["epochs"]), patience=params.get("patience", settings["patience"]),
+                device=device, save_weights=False,
+            )
+        save_training(model, history, args, window["name"])
+    else:
+        model = load_weights(model, weights_path=get_weights_path(args, window["name"]), device=device)
+
+    if args.command == "predict":
+        y_true, y_pred = predict(model, test_loader, device=device, y_normalizer=y_normalizer)
+        save_predictions(args.model, y_true, y_pred, SHORT_HORIZONS, args.input, args.ticker, window["name"])
+        return
+
+    metrics = evaluate(
+        model=model, test_loader=test_loader, y_normalizer=y_normalizer, horizons=SHORT_HORIZONS,
+        model_name=args.model, input_name=args.input, ticker=args.ticker, window_name=window["name"],
+        device=device, save_forecasts=args.save_forecasts,
+    )
+    mean_r2 = sum(metrics["r2_os"]) / len(metrics["r2_os"])
+    print(f"Mean R2_OS across horizons: {100 * mean_r2:.3f}%")
 
 
-def run_evaluation(args, test_loader, horizons):
-    return evaluate(args.model, test_loader, horizons, device=args.device)
+def main():
+    args = parse_args()
+    args.data_root = args.data_root.expanduser().resolve()
+    config = load_config()
+    windows = get_splits()
+    check_files(args, windows)
 
-
-def run_prediction(args, test_loader, horizons):
-    model, _ = get_model(args.model)
-    model = load_weights(model, weights_path=f"{args.model}.pt", device=args.device)
-    y_true, y_pred = predict(model, test_loader, device=args.device)
-    save_predictions(args.model, y_true, y_pred, horizons)
-    return y_pred
+    for window in windows:
+        run_window(args, window, config)
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    print(f"Selected command: {args.command} | Model: {args.model}")
+    main()

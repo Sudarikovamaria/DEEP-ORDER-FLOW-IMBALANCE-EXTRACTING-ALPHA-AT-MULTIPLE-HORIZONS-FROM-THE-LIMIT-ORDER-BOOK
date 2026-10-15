@@ -3,7 +3,7 @@ data/*
 !data/README.md
 
 # Experiment outputs
-results/
+results/**/predictions.csv
 weights/*
 !weights/.gitkeep
 
