@@ -3,7 +3,7 @@ from pathlib import Path
 
 import torch
 
-from ..engine import load_weights
+from ..engine import get_device, load_weights
 from ..models import get_model
 
 
@@ -34,7 +34,8 @@ def save_metrics(model_name, metrics, horizons):
     return metrics_path
 
 
-def predict(model, test_loader, device="cuda"):
+def predict(model, test_loader, device="auto"):
+    device = get_device(device)
     model = model.to(device)
     model.eval()
     targets = []
@@ -65,7 +66,7 @@ def save_predictions(model_name, y_true, y_pred, horizons):
     return predictions_path
 
 
-def evaluate(model_name, test_loader, horizons, device="cuda"):
+def evaluate(model_name, test_loader, horizons, device="auto"):
     model, _ = get_model(model_name)
     model = load_weights(model, weights_path=f"{model_name}.pt", device=device)
     y_true, y_pred = predict(model, test_loader, device=device)

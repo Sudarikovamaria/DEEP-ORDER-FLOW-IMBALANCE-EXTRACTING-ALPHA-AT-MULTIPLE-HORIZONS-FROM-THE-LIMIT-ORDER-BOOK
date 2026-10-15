@@ -4,7 +4,18 @@ import torch
 from torch import nn
 
 
-def train(model, train_loader, val_loader, learning_rate, weights_path, epochs=50, patience=5, device="cuda", save_weights=True):
+def get_device(device="auto"):
+    if device != "auto":
+        return torch.device(device)
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
+def train(model, train_loader, val_loader, learning_rate, weights_path, epochs=50, patience=5, device="auto", save_weights=True):
+    device = get_device(device)
     model = model.to(device)
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -70,7 +81,8 @@ def train(model, train_loader, val_loader, learning_rate, weights_path, epochs=5
     return model, history
 
 
-def load_weights(model, weights_path, device="cpu"):
+def load_weights(model, weights_path, device="auto"):
+    device = get_device(device)
     project_root = Path(__file__).resolve().parents[2]
     weights_path = project_root / "weights" / weights_path
     model = model.to(device)

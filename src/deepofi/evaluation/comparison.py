@@ -26,6 +26,7 @@ def compare_models(model_names):
     model_names = list(model_names)
     comparison = load_metrics(model_names)
     output_dir = PROJECT_ROOT / "results" / "model_comparison"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     for metric, label in (("mse", "MSE"), ("r2_os", "R²_OS")):
         fig, ax = plt.subplots(figsize=(8, 5))

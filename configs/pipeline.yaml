@@ -1,0 +1,35 @@
+# Pipeline parameters (HANDOFF §4–§7). Changing anything here after the dataset
+# freeze means a new DATASET_VERSION.
+
+session:
+  timezone: America/New_York
+  open: "09:30"
+  close: "16:00"
+  trim_minutes: 10          # keep 09:40–15:50
+
+book:
+  levels: 10
+
+features:
+  of_variant: paper         # paper | cont, see DEVIATIONS.md
+
+targets:
+  n_short_horizons: 10      # h_k = k * delta_t / 5
+  long_horizons: [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  delta_tau_ms: 10
+  delta_t_numerator_ms: 2.34e7
+
+training:
+  window: 100
+  batch_size: 256
+  epochs: 50
+  patience: 5
+  winsorize: [0.005, 0.995]
+  max_samples_per_epoch: 400000
+  seed: 0
+
+splits:
+  val_weeks: 1
+  train_weeks: 4
+  test_weeks: 1
+  step_weeks: 3

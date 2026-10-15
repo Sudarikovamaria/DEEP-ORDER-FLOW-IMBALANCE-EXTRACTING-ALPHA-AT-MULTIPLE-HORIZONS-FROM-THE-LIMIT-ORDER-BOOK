@@ -12,7 +12,7 @@ def parse_args():
     for command in ("train", "evaluate", "predict"):
         command_parser = commands.add_parser(command)
         command_parser.add_argument("--model", choices=MODELS, required=True)
-        command_parser.add_argument("--device", choices=("cpu", "cuda", "mps"), default="cuda")
+        command_parser.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default="auto")
         if command == "train":
             command_parser.add_argument("--save-weights", action=argparse.BooleanOptionalAction, default=True)
 

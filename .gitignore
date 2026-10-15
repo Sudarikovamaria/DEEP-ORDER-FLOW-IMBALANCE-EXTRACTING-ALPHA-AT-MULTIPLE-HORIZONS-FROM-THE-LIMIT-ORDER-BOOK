@@ -1,0 +1,20 @@
+# Raw and derived IEX data must never be committed (IEX Historical Data Terms of Use)
+data/*
+!data/README.md
+
+# Experiment outputs
+results/
+weights/*
+!weights/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
