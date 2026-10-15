@@ -12,7 +12,7 @@ book:
 
 cleaning:
   halt_policy: drop_day     # drop_day | drop_period (any Trading Status != 'T' or operational halt)
-  drop_unchanged: true      # drop snapshots whose top-10 state equals the previous kept one
+  drop_unchanged: false     # as in the paper: every update after collapsing is an event, even if only levels > 10 changed
 
 features:
   of_variant: paper         # paper | cont, see DEVIATIONS.md

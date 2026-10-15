@@ -49,6 +49,10 @@ class Progress:
 
 
 def download_with_retries(entry, dest, max_attempts, log_every):
+    done = Path(dest) / f"{entry['date']}_IEXTP1_{entry['feed']}{entry['version']}.pcap.gz"
+    if done.exists() and done.stat().st_size == entry["size"]:
+        log(f"  already downloaded: {done.name}")
+        return done
     for attempt in range(1, max_attempts + 1):
         started = time.time()
         part = Path(dest) / f"{entry['date']}_IEXTP1_{entry['feed']}{entry['version']}.pcap.gz.part"

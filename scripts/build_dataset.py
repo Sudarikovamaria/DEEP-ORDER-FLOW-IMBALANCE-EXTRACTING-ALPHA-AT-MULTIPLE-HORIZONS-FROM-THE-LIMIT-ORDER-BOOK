@@ -1,6 +1,9 @@
 """Build book / features / targets for selected tickers from one IEX DEEP day (HANDOFF §3).
 
+    python scripts/build_dataset.py data/records/20260720.bin --tickers BAC NFLX
     python scripts/build_dataset.py data/raw/20261014_IEXTP1_DEEP1.0.pcap.gz --tickers BAC AMZN NFLX
+
+The source is either extracted records (data/records/{date}.bin from overnight.py) or a raw pcap.
 
 Delta t must come from a reference period before the sample (data/meta/{TICKER}.json,
 key "delta_t_ms"). `--delta-t-same-day` computes it from the day itself, which looks ahead and
@@ -20,14 +23,14 @@ from deepofi.data_process.characteristics import day_characteristics
 from deepofi.data_process.clean import clean_book, session_bounds
 from deepofi.data_process.features import limit_order_book, order_flow, order_flow_imbalance
 from deepofi.data_process.targets import SHORT_HORIZONS, count_price_changes, delta_t_ms, forward_returns
-from deepofi.iex.deep import KIND_TRADE, encode_symbol, read_records
+from deepofi.iex.deep import KIND_TRADE, encode_symbol, load_records, read_records
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("pcap", type=Path)
+    parser.add_argument("source", type=Path, help="data/records/{date}.bin or a raw pcap(.gz)")
     parser.add_argument("--tickers", nargs="+", required=True)
     parser.add_argument("--root", type=Path, default=PROJECT_ROOT / "data")
     parser.add_argument("--config", type=Path, default=PROJECT_ROOT / "configs" / "pipeline.yaml")
@@ -88,10 +91,13 @@ def build_ticker(records, ticker, date, root, config, delta_t_same_day):
 def main():
     args = parse_args()
     config = yaml.safe_load(args.config.read_text())
-    date = re.match(r"(\d{8})", args.pcap.name).group(1)
+    date = re.match(r"(\d{8})", args.source.name).group(1)
 
     t0 = time.time()
-    records = read_records(args.pcap, symbols=args.tickers)
+    if args.source.suffix == ".bin":
+        records = load_records(args.source, symbols=args.tickers)
+    else:
+        records = read_records(args.source, symbols=args.tickers)
     print(f"Parsed {len(records):,} records for {len(args.tickers)} tickers in {time.time() - t0:.0f} s")
 
     for ticker in args.tickers:

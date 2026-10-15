@@ -328,3 +328,43 @@ def iter_records(source, symbols=None, chunk_bytes=1 << 26, out_capacity=1 << 20
 def read_records(source, symbols=None, stats=None, **kwargs):
     chunks = list(iter_records(source, symbols=symbols, stats=stats, **kwargs))
     return np.concatenate(chunks) if chunks else np.empty(0, dtype=RECORD_DTYPE)
+
+
+def extract_records(source, out_path, symbols, stats=None, **kwargs):
+    """Stream the records of `symbols` into a raw RECORD_DTYPE file without holding the day in memory.
+
+    The file is written under a temporary name and renamed when complete. Returns the record count.
+    """
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    partial = out_path.with_name(out_path.name + ".part")
+    count = 0
+    with partial.open("wb") as file:
+        for chunk in iter_records(source, symbols=symbols, stats=stats, **kwargs):
+            chunk.tofile(file)
+            count += len(chunk)
+    partial.rename(out_path)
+    return count
+
+
+def extract_day(source, out_path, symbols):
+    """extract_records plus parse statistics, as a picklable summary for worker processes."""
+    stats = ParseStats()
+    count = extract_records(source, out_path, symbols, stats=stats)
+    return {
+        "records": count,
+        "packets": stats.packets,
+        "gap_messages": stats.gap_messages,
+        "duplicate_packets": stats.duplicate_packets,
+        "truncated_bytes": stats.truncated_bytes,
+        "message_counts": stats.counts_by_type(),
+    }
+
+
+def load_records(path, symbols=None):
+    """Records saved by extract_records, optionally restricted to some symbols (memory-mapped read)."""
+    records = np.memmap(path, dtype=RECORD_DTYPE, mode="r")
+    if symbols is None:
+        return np.array(records)
+    keep = np.isin(records["symbol"], np.array([encode_symbol(s) for s in symbols], dtype=np.uint64))
+    return np.array(records[keep])

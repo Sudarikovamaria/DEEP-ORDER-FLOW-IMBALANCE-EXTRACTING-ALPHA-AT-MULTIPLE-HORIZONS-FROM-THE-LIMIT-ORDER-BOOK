@@ -174,6 +174,20 @@ def test_unknown_grown_and_foreign_messages(tmp_path):
     assert stats.other_packets == 1
 
 
+def test_extract_and_load_records(tmp_path):
+    from deepofi.iex.deep import extract_records, load_records
+
+    packets = [p for k in range(10) for p in sample_packets(first_seq=1 + 6 * k)]
+    source = write(tmp_path, pcapng(packets), "day.pcapng")
+    expected = read_records(source, symbols=["AAPL", "MSFT"])
+
+    count = extract_records(source, tmp_path / "records" / "day.bin", ["AAPL", "MSFT"], out_capacity=7)
+    assert count == len(expected)
+    np.testing.assert_array_equal(load_records(tmp_path / "records" / "day.bin"), expected)
+    msft = load_records(tmp_path / "records" / "day.bin", symbols=["MSFT"])
+    assert {decode_symbol(s) for s in msft["symbol"]} == {"MSFT"} and len(msft) == 10
+
+
 def test_rejects_non_pcap(tmp_path):
     with pytest.raises(ValueError):
         read_records(write(tmp_path, b"\x00" * 64))
