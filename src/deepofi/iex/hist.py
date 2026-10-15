@@ -4,7 +4,6 @@ Using HIST data requires accepting the IEX Historical Data Terms of Use. Raw pca
 downloaded to data/raw/, parsed, and deleted; they must never be committed.
 """
 import json
-import shutil
 import urllib.request
 from pathlib import Path
 
@@ -26,8 +25,10 @@ def list_files(feed="DEEP", version="1.0", url=HIST_URL):
     return dict(sorted(files.items()))
 
 
-def download(entry, dest_dir=RAW_DIR, chunk_bytes=1 << 22):
-    """Download one HIST file, resuming a partial download. Returns the local path."""
+def download(entry, dest_dir=RAW_DIR, chunk_bytes=1 << 22, progress=None):
+    """Download one HIST file, resuming a partial download. Returns the local path.
+
+    `progress(done_bytes, total_bytes)` is called after every chunk."""
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
     path = dest_dir / f"{entry['date']}_IEXTP1_{entry['feed']}{entry['version']}.pcap.gz"
@@ -42,7 +43,12 @@ def download(entry, dest_dir=RAW_DIR, chunk_bytes=1 << 22):
         if offset and response.status != 206:
             offset = 0
         with partial.open("ab" if offset else "wb") as file:
-            shutil.copyfileobj(response, file, chunk_bytes)
+            done = offset
+            while chunk := response.read(chunk_bytes):
+                file.write(chunk)
+                done += len(chunk)
+                if progress:
+                    progress(done, entry["size"])
 
     if partial.stat().st_size != entry["size"]:
         raise OSError(f"Incomplete download {partial}: {partial.stat().st_size} of {entry['size']} bytes")
