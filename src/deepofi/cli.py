@@ -28,6 +28,8 @@ def parse_args():
         command_parser.add_argument("--input", choices=INPUT_FEATURES, default="of")
         command_parser.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"), default="auto")
         command_parser.add_argument("--save-forecasts", action="store_true")
+        command_parser.add_argument("--sgd", action="store_true",
+                                    help="train a closed-form model (ARX) with Adam like the paper; saved as {model}_sgd")
         if command == "train":
             command_parser.add_argument("--save-weights", action=argparse.BooleanOptionalAction, default=True)
             command_parser.add_argument("--epochs", type=int, default=None, help="cap on epochs; overrides the model and config value")
@@ -37,7 +39,7 @@ def parse_args():
 
 
 def get_weights_path(args, window_name):
-    return PROJECT_ROOT / "weights" / args.model / args.input / args.ticker / f"{window_name}.pt"
+    return PROJECT_ROOT / "weights" / args.run_name / args.input / args.ticker / f"{window_name}.pt"
 
 
 def check_files(args, windows):
@@ -64,7 +66,7 @@ def save_training(model, history, args, window_name):
         torch.save(state, path)
         print(f"Weights saved: {path}")
 
-    history_path = get_results_dir(args.model, args.input, args.ticker, window_name) / "history.csv"
+    history_path = get_results_dir(args.run_name, args.input, args.ticker, window_name) / "history.csv"
     with history_path.open("w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=list(history[0]))
         writer.writeheader()
@@ -76,9 +78,9 @@ def run_window(args, window, config):
     settings = config["training"]
     torch.manual_seed(settings["seed"])
     model, params = get_model(args.model, n_features=INPUT_FEATURES[args.input], n_horizons=len(SHORT_HORIZONS))
-    fit = get_fit(args.model)
+    fit = None if args.sgd else get_fit(args.model)
     device = "cpu" if fit else args.device
-    print(f"{args.model} | {args.input} | {args.ticker} | {window['name']}")
+    print(f"{args.run_name} | {args.input} | {args.ticker} | {window['name']}")
 
     loaders, y_normalizer, dt_ms = make_window_loaders(
         root=args.data_root, ticker=args.ticker,
@@ -107,12 +109,12 @@ def run_window(args, window, config):
 
     if args.command == "predict":
         y_true, y_pred = predict(model, test_loader, device=device, y_normalizer=y_normalizer)
-        save_predictions(args.model, y_true, y_pred, SHORT_HORIZONS, args.input, args.ticker, window["name"])
+        save_predictions(args.run_name, y_true, y_pred, SHORT_HORIZONS, args.input, args.ticker, window["name"])
         return
 
     metrics = evaluate(
         model=model, test_loader=test_loader, y_normalizer=y_normalizer, horizons=SHORT_HORIZONS,
-        model_name=args.model, input_name=args.input, ticker=args.ticker, window_name=window["name"],
+        model_name=args.run_name, input_name=args.input, ticker=args.ticker, window_name=window["name"],
         device=device, save_forecasts=args.save_forecasts, dates=window["test_dates"],
     )
     mean_r2 = sum(metrics["r2_os"]) / len(metrics["r2_os"])
@@ -122,6 +124,7 @@ def run_window(args, window, config):
 def main():
     args = parse_args()
     args.data_root = args.data_root.expanduser().resolve()
+    args.run_name = f"{args.model}_sgd" if args.sgd else args.model
     config = load_config()
     windows = get_splits()
     check_files(args, windows)
