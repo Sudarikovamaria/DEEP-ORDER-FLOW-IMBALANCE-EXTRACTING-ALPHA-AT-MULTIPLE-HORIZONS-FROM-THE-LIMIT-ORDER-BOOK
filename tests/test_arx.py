@@ -38,3 +38,14 @@ def test_ridge_recovers_coefficients_and_intercept():
     torch.testing.assert_close(model.linear.weight.T, beta, atol=5e-3, rtol=0)
     torch.testing.assert_close(model.linear.bias, torch.tensor([0.5, 0.5]), atol=5e-3, rtol=0)
     assert model(x[:4]).shape == (4, 2)
+
+
+def test_merged_moments_equal_moments_of_concatenated_data():
+    x1, y1, _ = linear_data(300, seed=2)
+    x2, y2, _ = linear_data(200, seed=3)
+    merged = _Moments.from_loader(DataLoader(TensorDataset(x1, y1), batch_size=64)).merge(
+        _Moments.from_loader(DataLoader(TensorDataset(x2, y2), batch_size=64)))
+    joint = _Moments.from_loader(DataLoader(TensorDataset(torch.cat([x1, x2]), torch.cat([y1, y2])), batch_size=64))
+    assert merged.n == joint.n == 500
+    for name in ("sx", "sy", "sxx", "sxy", "syy"):
+        torch.testing.assert_close(getattr(merged, name), getattr(joint, name))

@@ -50,6 +50,14 @@ class _Moments:
         self.sxy += x.T @ y
         self.syy += (y * y).sum(0)
 
+    def merge(self, other):
+        """Add another set of sums (pooled estimation across stocks)."""
+        if self.n == 0:
+            return other
+        for name in ("n", "sx", "sy", "sxx", "sxy", "syy"):
+            setattr(self, name, getattr(self, name) + getattr(other, name))
+        return self
+
     @classmethod
     def from_loader(cls, loader):
         moments = cls()
@@ -72,9 +80,11 @@ class _Moments:
 
 def fit(model, train_loader, val_loader, ridge_grid=TRAINING_PARAMS["ridge_grid"], **_):
     """Closed-form ridge with an unpenalized intercept; the penalty minimizing mean val MSE wins."""
-    train = _Moments.from_loader(train_loader)
-    val = _Moments.from_loader(val_loader)
+    return fit_moments(model, _Moments.from_loader(train_loader), _Moments.from_loader(val_loader), ridge_grid)
 
+
+def fit_moments(model, train, val, ridge_grid=TRAINING_PARAMS["ridge_grid"]):
+    """The ridge solution from accumulated sums, so several stocks can be pooled into one fit."""
     mean_x, mean_y = train.sx / train.n, train.sy / train.n
     cxx = train.sxx - train.n * torch.outer(mean_x, mean_x)
     cxy = train.sxy - train.n * torch.outer(mean_x, mean_y)
