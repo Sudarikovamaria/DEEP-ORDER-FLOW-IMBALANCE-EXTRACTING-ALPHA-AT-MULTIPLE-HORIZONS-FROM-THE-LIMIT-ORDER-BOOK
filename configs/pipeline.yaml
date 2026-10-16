@@ -30,6 +30,7 @@ training:
   patience: 5
   winsorize: [0.005, 0.995]
   max_samples_per_epoch: 400000
+  max_val_samples: 200000   # fixed random validation subset for early stopping (not used by ARX)
   seed: 0
 
 splits:

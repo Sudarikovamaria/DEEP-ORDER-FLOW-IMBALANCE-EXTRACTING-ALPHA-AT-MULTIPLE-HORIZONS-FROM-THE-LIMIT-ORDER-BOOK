@@ -45,3 +45,40 @@ def test_linear_model_learns_synthetic_signal(tmp_path):
     r2 = calculate_metrics(y_true, torch.from_numpy(y_normalizer.inverse(y_pred.double().numpy())))["r2_os"]
 
     assert np.mean(r2) > 0.05
+
+
+def random_days(n_days=3, n_events=300, n_features=5, n_horizons=4, seed=0):
+    rng = np.random.default_rng(seed)
+    days = []
+    for _ in range(n_days):
+        mask = rng.random((n_events, n_horizons)) > 0.05
+        days.append((rng.normal(size=(n_events, n_features)).astype(np.float32), rng.normal(size=(n_events, n_horizons)).astype(np.float32), mask))
+    return days
+
+
+def test_batched_windows_equal_per_sample_windows():
+    dataset = WindowDataset(random_days(), window=20)
+    indices = np.random.default_rng(1).choice(len(dataset), size=97, replace=False)  # unsorted, across days
+
+    x, y = dataset.__getitems__(indices.tolist())
+    expected = [dataset[i] for i in indices]
+    torch.testing.assert_close(x, torch.stack([e[0] for e in expected]), rtol=0, atol=0)
+    torch.testing.assert_close(y, torch.stack([e[1] for e in expected]), rtol=0, atol=0)
+
+
+def test_loaders_batch_in_order_and_subsample_validation_deterministically():
+    from deepofi.data_process.windows import make_loaders_from_days
+
+    days = random_days(n_days=4)
+    (train, val, test), _ = make_loaders_from_days(days[:2], days[2:3], days[3:], window=20, batch_size=64, max_val_samples=50)
+    (_, val_again, _), _ = make_loaders_from_days(days[:2], days[2:3], days[3:], window=20, batch_size=64, max_val_samples=50)
+
+    assert len(val.dataset) == 50 and list(val.dataset.indices) == list(val_again.dataset.indices)
+    x_val = torch.cat([x for x, _ in val])
+    assert x_val.shape == (50, 20, 5)
+    x_test = torch.cat([x for x, _ in test])
+    assert len(x_test) == len(test.dataset)  # the test set is never subsampled
+    first_x, _ = test.dataset[0]
+    torch.testing.assert_close(x_test[0], first_x)
+    x_train, y_train = next(iter(train))
+    assert x_train.shape == (64, 20, 5) and y_train.shape == (64, 4)

@@ -83,7 +83,8 @@ def run_window(args, window, config):
         val_dates=window["val_dates"], train_dates=window["train_dates"], test_dates=window["test_dates"],
         input_name=args.input, config=config,
         window=settings["window"], batch_size=settings["batch_size"],
-        max_samples_per_epoch=None if fit else settings.get("max_samples_per_epoch"), seed=settings["seed"],
+        max_samples_per_epoch=None if fit else settings.get("max_samples_per_epoch"),
+        max_val_samples=None if fit else settings.get("max_val_samples"), seed=settings["seed"],
     )
     train_loader, val_loader, test_loader = loaders
     print(f"Delta t: {dt_ms:.3f} ms")
