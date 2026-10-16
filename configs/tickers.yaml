@@ -1,0 +1,12 @@
+# Dataset v1 universe (DEVIATIONS.md, row 8).
+# Rule on the selection day: common stock, delta t >= 180 ms, >= 300k book events per day;
+# 11 names picked across tick size and sectors, without crypto miners and names with very wide IEX spreads.
+dataset_version: v1
+selection_day: "20260717"
+period: ["20260720", "20261009"]   # 59 trading days, 3 rolling windows (data_process/splits.py)
+
+# Grouped by median fraction of time with a one-tick spread over the period.
+tickers:
+  small_tick: [DIS, CTSH, UBER]
+  medium_tick: [MO, NEE, OXY, USB]
+  large_tick: [BSX, NKE, VZ, BAC]
