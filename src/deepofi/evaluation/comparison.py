@@ -9,22 +9,25 @@ from ..data_process.windows import INPUT_FEATURES
 from ..models import MODELS
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+EXPERIMENT_TICKERS = ("BAC", "VZ", "NKE", "USB", "OXY", "UBER")
 
 
 def load_metrics(model_names, input_name, ticker=None, tickers=None):
-    """Weekly metrics of every model, restricted to the tickers that all models finished on all windows.
+    """Weekly metrics for the six experiment tickers, or an explicitly selected set.
 
-    `ticker` or `tickers` narrow the set further; models trained on more tickers (e.g. ARX on all 11)
-    are compared on the common ones.
+    Every selected ticker must have all three windows for every model; extra tickers are ignored.
     """
     expected_windows = {window["name"] for window in get_splits()}
-    wanted = {ticker} if ticker else set(tickers or [])
+    wanted = {ticker} if ticker else set(tickers or EXPERIMENT_TICKERS)
     reference_horizons = None
     per_model = {}
 
     for model_name in model_names:
         base = PROJECT_ROOT / "results" / model_name / input_name
-        paths = [path for path in sorted(base.glob("*/window_*/metrics.csv")) if path.parent.name in expected_windows]
+        paths = [
+            path for path in sorted(base.glob("*/window_*/metrics.csv"))
+            if path.parent.name in expected_windows and path.parent.parent.name in wanted
+        ]
         tables = []
         for path in paths:
             table = pd.read_csv(path)
@@ -50,9 +53,10 @@ def load_metrics(model_names, input_name, ticker=None, tickers=None):
         {name for name, windows in metrics.groupby("ticker")["window"] if set(windows) == expected_windows}
         for metrics in per_model.values()
     ]
-    common = set.intersection(*complete) & wanted if wanted else set.intersection(*complete)
-    if not common:
-        raise ValueError(f"No ticker has all three windows for every model {model_names}" + (f" among {sorted(wanted)}" if wanted else ""))
+    common = set.intersection(*complete) & wanted
+    missing = wanted - common
+    if missing:
+        raise ValueError(f"Missing complete three-window metrics for tickers: {sorted(missing)}")
     print(f"Comparing on {len(common)} tickers: {', '.join(sorted(common))}")
 
     metrics = pd.concat(per_model.values(), ignore_index=True)
