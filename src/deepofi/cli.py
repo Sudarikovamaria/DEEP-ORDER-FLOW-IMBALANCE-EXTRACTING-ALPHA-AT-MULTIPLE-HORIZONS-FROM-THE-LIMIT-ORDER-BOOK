@@ -31,6 +31,7 @@ def parse_args():
         if command == "train":
             command_parser.add_argument("--save-weights", action=argparse.BooleanOptionalAction, default=True)
             command_parser.add_argument("--epochs", type=int, default=None, help="cap on epochs; overrides the model and config value")
+            command_parser.add_argument("--learning-rate", type=float, default=None, help="overrides the model's learning rate")
 
     return parser.parse_args()
 
@@ -95,7 +96,7 @@ def run_window(args, window, config):
             model, history = fit(model, train_loader, val_loader, **params)
         else:
             model, history = train(
-                model, train_loader, val_loader, learning_rate=params["learning_rate"],
+                model, train_loader, val_loader, learning_rate=args.learning_rate or params["learning_rate"],
                 weights_path=get_weights_path(args, window["name"]),
                 epochs=args.epochs or params.get("epochs", settings["epochs"]), patience=params.get("patience", settings["patience"]),
                 device=device, save_weights=False,
