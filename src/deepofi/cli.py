@@ -30,6 +30,7 @@ def parse_args():
         command_parser.add_argument("--save-forecasts", action="store_true")
         if command == "train":
             command_parser.add_argument("--save-weights", action=argparse.BooleanOptionalAction, default=True)
+            command_parser.add_argument("--epochs", type=int, default=None, help="cap on epochs; overrides the model and config value")
 
     return parser.parse_args()
 
@@ -96,7 +97,7 @@ def run_window(args, window, config):
             model, history = train(
                 model, train_loader, val_loader, learning_rate=params["learning_rate"],
                 weights_path=get_weights_path(args, window["name"]),
-                epochs=params.get("epochs", settings["epochs"]), patience=params.get("patience", settings["patience"]),
+                epochs=args.epochs or params.get("epochs", settings["epochs"]), patience=params.get("patience", settings["patience"]),
                 device=device, save_weights=False,
             )
         save_training(model, history, args, window["name"])
