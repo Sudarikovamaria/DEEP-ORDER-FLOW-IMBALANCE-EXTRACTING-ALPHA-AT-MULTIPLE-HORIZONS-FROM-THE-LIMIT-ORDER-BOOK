@@ -11,29 +11,27 @@ from ..models import MODELS
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
-def load_metrics(model_names, input_name, ticker=None):
-    tables = []
+def load_metrics(model_names, input_name, ticker=None, tickers=None):
+    """Weekly metrics of every model, restricted to the tickers that all models finished on all windows.
+
+    `ticker` or `tickers` narrow the set further; models trained on more tickers (e.g. ARX on all 11)
+    are compared on the common ones.
+    """
     expected_windows = {window["name"] for window in get_splits()}
-    reference_pairs = None
+    wanted = {ticker} if ticker else set(tickers or [])
     reference_horizons = None
+    per_model = {}
 
     for model_name in model_names:
         base = PROJECT_ROOT / "results" / model_name / input_name
-        paths = sorted(base.glob(f"{ticker or '*'}/window_*/metrics.csv"))
-        paths = [path for path in paths if path.parent.name in expected_windows]
-        if not paths:
-            raise FileNotFoundError(f"No metrics for {model_name}, input {input_name}, ticker {ticker or 'all'}")
-
-        pairs = set()
+        paths = [path for path in sorted(base.glob("*/window_*/metrics.csv")) if path.parent.name in expected_windows]
+        tables = []
         for path in paths:
-            ticker_name = path.parent.parent.name
-            window_name = path.parent.name
             table = pd.read_csv(path)
             if "date" in table:
                 table = table[table["date"] == "week"]
             table = table.sort_values("horizon")
             horizons = table["horizon"].tolist()
-
             if reference_horizons is None:
                 reference_horizons = horizons
             elif horizons != reference_horizons:
@@ -41,31 +39,35 @@ def load_metrics(model_names, input_name, ticker=None):
 
             table = table[["horizon", "mse", "r2_os"]].copy()
             table["model"] = model_name
-            table["ticker"] = ticker_name
-            table["window"] = window_name
+            table["ticker"] = path.parent.parent.name
+            table["window"] = path.parent.name
             tables.append(table)
-            pairs.add((ticker_name, window_name))
+        if not tables:
+            raise FileNotFoundError(f"No metrics for {model_name}, input {input_name}")
+        per_model[model_name] = pd.concat(tables, ignore_index=True)
 
-        tickers = {name for name, _ in pairs}
-        if pairs != {(name, window) for name in tickers for window in expected_windows}:
-            raise ValueError(f"Metrics for all three windows are required: {model_name}")
+    complete = [
+        {name for name, windows in metrics.groupby("ticker")["window"] if set(windows) == expected_windows}
+        for metrics in per_model.values()
+    ]
+    common = set.intersection(*complete) & wanted if wanted else set.intersection(*complete)
+    if not common:
+        raise ValueError(f"No ticker has all three windows for every model {model_names}" + (f" among {sorted(wanted)}" if wanted else ""))
+    print(f"Comparing on {len(common)} tickers: {', '.join(sorted(common))}")
 
-        if reference_pairs is None:
-            reference_pairs = pairs
-        elif pairs != reference_pairs:
-            raise ValueError("Models must have metrics for the same tickers and windows")
-
-    return pd.concat(tables, ignore_index=True)
+    metrics = pd.concat(per_model.values(), ignore_index=True)
+    return metrics[metrics["ticker"].isin(common)]
 
 
-def compare_models(model_names, input_name="of", ticker=None):
+def compare_models(model_names, input_name="of", ticker=None, tickers=None):
     model_names = list(dict.fromkeys(model_names))
-    metrics = load_metrics(model_names, input_name, ticker)
+    metrics = load_metrics(model_names, input_name, ticker, tickers)
     comparison = metrics.groupby(["model", "horizon"], as_index=False)[["mse", "r2_os"]].mean()
 
-    output_dir = PROJECT_ROOT / "results" / "model_comparison" / input_name / (ticker or "all_tickers")
+    output_dir = PROJECT_ROOT / "results" / "model_comparison" / input_name / (ticker or ("selected_tickers" if tickers else "all_tickers"))
     output_dir.mkdir(parents=True, exist_ok=True)
     comparison.to_csv(output_dir / "comparison.csv", index=False)
+    (output_dir / "tickers.txt").write_text("\n".join(sorted(metrics["ticker"].unique())) + "\n")
 
     for metric, label in (("mse", "Mean MSE"), ("r2_os", "Mean R²_OS")):
         fig, ax = plt.subplots(figsize=(8, 5))
@@ -94,9 +96,10 @@ def parse_args():
     parser.add_argument("--models", nargs="+", choices=MODELS, default=list(MODELS))
     parser.add_argument("--input", choices=INPUT_FEATURES, default="of")
     parser.add_argument("--ticker", type=str.upper, default=None)
+    parser.add_argument("--tickers", nargs="+", type=str.upper, default=None, help="compare only on these tickers")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    compare_models(args.models, args.input, args.ticker)
+    compare_models(args.models, args.input, args.ticker, args.tickers)
