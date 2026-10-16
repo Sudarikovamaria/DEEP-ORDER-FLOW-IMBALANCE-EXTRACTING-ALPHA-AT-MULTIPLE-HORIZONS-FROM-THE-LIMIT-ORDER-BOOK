@@ -110,7 +110,7 @@ def run_window(args, window, config):
     metrics = evaluate(
         model=model, test_loader=test_loader, y_normalizer=y_normalizer, horizons=SHORT_HORIZONS,
         model_name=args.model, input_name=args.input, ticker=args.ticker, window_name=window["name"],
-        device=device, save_forecasts=args.save_forecasts,
+        device=device, save_forecasts=args.save_forecasts, dates=window["test_dates"],
     )
     mean_r2 = sum(metrics["r2_os"]) / len(metrics["r2_os"])
     print(f"Mean R2_OS across horizons: {100 * mean_r2:.3f}%")

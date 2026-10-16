@@ -28,7 +28,10 @@ def load_metrics(model_names, input_name, ticker=None):
         for path in paths:
             ticker_name = path.parent.parent.name
             window_name = path.parent.name
-            table = pd.read_csv(path).sort_values("horizon")
+            table = pd.read_csv(path)
+            if "date" in table:
+                table = table[table["date"] == "week"]
+            table = table.sort_values("horizon")
             horizons = table["horizon"].tolist()
 
             if reference_horizons is None:

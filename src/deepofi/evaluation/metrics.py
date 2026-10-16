@@ -6,13 +6,26 @@ import torch
 from ..engine import get_device
 
 
-def calculate_metrics(y_true, y_pred):
+def calculate_metrics(y_true, y_pred, benchmark=None):
+    """MSE and R2_OS per horizon; the benchmark defaults to the mean return of y_true."""
     y_true = y_true.detach().cpu().double()
     y_pred = y_pred.detach().cpu().double()
+    benchmark = y_true.mean(dim=0) if benchmark is None else benchmark
     mse = ((y_true - y_pred) ** 2).mean(dim=0)
-    benchmark_mse = ((y_true - y_true.mean(dim=0)) ** 2).mean(dim=0)
+    benchmark_mse = ((y_true - benchmark) ** 2).mean(dim=0)
     r2_os = torch.where(benchmark_mse > 0, 1 - mse / benchmark_mse, float("nan"))
-    return {"mse": mse.tolist(), "r2_os": r2_os.tolist()}
+    return {"mse": mse.tolist(), "r2_os": r2_os.tolist(), "n_obs": len(y_true)}
+
+
+def daily_metrics(y_true, y_pred, days, dates):
+    """R2_OS for each test day against the mean return of the whole test week (Tables 3-4 need daily values)."""
+    week_mean = y_true.detach().cpu().double().mean(dim=0)
+    days = torch.as_tensor(days)
+    return {
+        date: calculate_metrics(y_true[days == day], y_pred[days == day], benchmark=week_mean)
+        for day, date in enumerate(dates)
+        if (days == day).any()
+    }
 
 
 def predict(model, test_loader, device="auto", y_normalizer=None):
@@ -43,15 +56,17 @@ def get_results_dir(model_name, input_name, ticker, window_name):
     return output_dir
 
 
-def save_metrics(model_name, metrics, horizons, input_name, ticker, window_name):
+def save_metrics(model_name, metrics, horizons, input_name, ticker, window_name, daily=None):
+    """Rows with date "week" cover the whole test week; one row per test day and horizon follows."""
     metrics_path = get_results_dir(model_name, input_name, ticker, window_name) / "metrics.csv"
 
     with metrics_path.open("w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
-        writer.writerow(["horizon", "mse", "r2_os"])
+        writer.writerow(["date", "horizon", "mse", "r2_os", "n_obs"])
 
-        for horizon, mse, r2_os in zip(horizons, metrics["mse"], metrics["r2_os"], strict=True):
-            writer.writerow([horizon, mse, r2_os])
+        for date, values in {"week": metrics, **(daily or {})}.items():
+            for horizon, mse, r2_os in zip(horizons, values["mse"], values["r2_os"], strict=True):
+                writer.writerow([date, horizon, mse, r2_os, values["n_obs"]])
 
     print(f"Metrics saved: {metrics_path}")
     return metrics_path
@@ -72,10 +87,12 @@ def save_predictions(model_name, y_true, y_pred, horizons, input_name, ticker, w
     return predictions_path
 
 
-def evaluate(model, test_loader, y_normalizer, horizons, model_name, input_name, ticker, window_name, device="auto", save_forecasts=False):
+def evaluate(model, test_loader, y_normalizer, horizons, model_name, input_name, ticker, window_name, device="auto", save_forecasts=False, dates=None):
+    """`dates` are the test days in loader order; with them metrics.csv also gets daily R2_OS."""
     y_true, y_pred = predict(model, test_loader, device=device, y_normalizer=y_normalizer)
     metrics = calculate_metrics(y_true, y_pred)
-    save_metrics(model_name, metrics, horizons, input_name, ticker, window_name)
+    daily = daily_metrics(y_true, y_pred, test_loader.dataset.index[:, 0], dates) if dates else None
+    save_metrics(model_name, metrics, horizons, input_name, ticker, window_name, daily)
 
     if save_forecasts:
         save_predictions(model_name, y_true, y_pred, horizons, input_name, ticker, window_name)
