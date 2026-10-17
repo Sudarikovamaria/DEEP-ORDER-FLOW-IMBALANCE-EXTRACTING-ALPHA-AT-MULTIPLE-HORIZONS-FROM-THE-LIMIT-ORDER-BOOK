@@ -1,11 +1,10 @@
-# Raw and derived IEX data must never be committed (IEX Historical Data Terms of Use)
+# Raw and derived IEX data stay local; only tiny format samples with attribution are committed
 data/*
 !data/README.md
+!data/samples/
 
 # Experiment outputs
 results/**/predictions.csv
-weights/*
-!weights/.gitkeep
 
 # Python
 __pycache__/

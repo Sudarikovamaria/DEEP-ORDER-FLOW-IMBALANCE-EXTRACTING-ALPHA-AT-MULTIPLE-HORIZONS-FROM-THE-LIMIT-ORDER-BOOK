@@ -49,7 +49,7 @@ R²<sub>OS</sub> is lower than in the paper (~1–1.5% on Nasdaq): IEX sees only
 - **IEX DEEP** (price-level order book, displayed orders only) from the free IEX HIST archive. Data provided for free by IEX. [IEX Historical Data Terms of Use](https://www.iex.io/products/market-data-connectivity/hist-terms).
 - **Period**: 12 weeks, 20 July – 9 October 2026 (59 trading days), three rolling windows following the paper: one validation week, four training weeks, one test week, moved forward by three weeks.
 - **Stocks** (`configs/tickers.yaml`): common stocks with Δt ≥ 180 ms and ≥ 300k book events per day, selected on the day before the period. ARX runs on 11 stocks, the neural networks on 6 (BAC, VZ, NKE, USB, OXY, UBER).
-- **Dataset v1**: only clean books (`data/book/{TICKER}/{date}.parquet`) and day characteristics (`data/meta/…`), ~4 GB; inputs and targets are computed from them on the fly. Raw data and the dataset are not committed.
+- **Dataset v1**: only clean books (`data/book/{TICKER}/{date}.parquet`) and day characteristics (`data/meta/…`), ~4 GB; inputs and targets are computed from them on the fly. Raw data and the dataset are not committed; [data/README.md](data/README.md) describes every format, with 200-row samples in `data/samples/`.
 
 Every deviation from the paper, and every decision where the paper is silent, is listed in [DEVIATIONS.md](DEVIATIONS.md).
 
@@ -69,7 +69,7 @@ python -m deepofi.cli train --model cnn_lstm --ticker BAC --input of --data-root
 python scripts/make_report.py --data-root ~/data/deepofi_dataset_v1
 ```
 
-Models: `arx`, `mlp`, `lstm`, `lstm3`, `lstm_mlp`, `cnn_lstm`; inputs: `of`, `lob`, `ofi`. LSTM, LSTM (3), LSTM-MLP and MLP use `--learning-rate 1e-4` (deviation 13), and LSTM (3) also `--epochs 12`. By default ARX is solved by closed-form ridge regression; `--sgd` trains it with Adam like the paper. Results go to `results/{model}/{input}/{ticker}/window_0N/` (`history.csv`, and `metrics.csv` with weekly and daily R²<sub>OS</sub>), weights to `weights/`.
+Models: `arx`, `mlp`, `lstm`, `lstm3`, `lstm_mlp`, `cnn_lstm`; inputs: `of`, `lob`, `ofi`. LSTM, LSTM (3), LSTM-MLP and MLP use `--learning-rate 1e-4` (deviation 13), and LSTM (3) also `--epochs 12`. By default ARX is solved by closed-form ridge regression; `--sgd` trains it with Adam like the paper. Results go to `results/{model}/{input}/{ticker}/window_0N/` (`history.csv`, and `metrics.csv` with weekly and daily R²<sub>OS</sub>), weights to `weights/{model}/{input}/{ticker}/window_0N.pt` (committed for every run in `results/` except the ensemble and pooled ARX).
 
 Building the dataset from scratch (several hundred GB of downloads, ~10 hours):
 
