@@ -48,7 +48,7 @@ R²<sub>OS</sub> is lower than in the paper (~1–1.5% on Nasdaq): IEX sees only
 - **Stocks** (`configs/tickers.yaml`): common stocks with Δt ≥ 180 ms and ≥ 300k book events per day, selected on the day before the period. ARX runs on 11 stocks, the neural networks on 6 (BAC, VZ, NKE, USB, OXY, UBER).
 - **Dataset v1**: only clean books (`data/book/{TICKER}/{date}.parquet`) and day characteristics (`data/meta/…`), ~4 GB; inputs and targets are computed from them on the fly. Raw data and the dataset are not committed.
 
-Every deviation from the paper, and every decision where the paper is silent, is listed in [DEVIATIONS.md](DEVIATIONS.md) (in Russian).
+Every deviation from the paper, and every decision where the paper is silent, is listed in [DEVIATIONS.md](DEVIATIONS.md).
 
 ## How to run
 
