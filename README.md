@@ -7,8 +7,6 @@ A replication of Kolm, Turiel and Westray, *Deep Order Flow Imbalance: Extractin
 
 Neural networks and a linear model forecast mid-price returns at 10 horizons at once (from 0.2 to 2 "average price changes" Δt) from the last 100 order book events. We test the paper's four findings on a secondary venue with hidden liquidity and add three experiments beyond the paper.
 
-Seminar presentation: [docs/presentation.pptx](docs/presentation.pptx).
-
 ## Results
 
 Mean out-of-sample R²<sub>OS</sub>, OF (order flow) input, 6 stocks × 3 rolling windows, 15 test days per stock. As in Figure 2 of the paper, R²<sub>OS</sub> is first averaged over days for each stock, then over stocks.
