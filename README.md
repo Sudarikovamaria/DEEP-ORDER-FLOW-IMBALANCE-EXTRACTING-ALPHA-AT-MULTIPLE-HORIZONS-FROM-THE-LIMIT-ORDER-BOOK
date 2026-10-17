@@ -1,5 +1,8 @@
 # Deep Order Flow Imbalance on IEX DEEP
 
+**Contributors:** [Artemiy Maselskas](https://github.com/artemii2006) · [Maria Sudarikova](https://github.com/Sudarikovamaria) · [Anastasiya Polishchuk](https://github.com/AnastasiyaPolishchuk)
+
+
 A replication of Kolm, Turiel and Westray, *Deep Order Flow Imbalance: Extracting Alpha at Multiple Horizons from the Limit Order Book* (SSRN 3900141, 2021; Mathematical Finance 33(4), 2023), on IEX exchange data instead of Nasdaq/LOBSTER.
 
 Neural networks and a linear model forecast mid-price returns at 10 horizons at once (from 0.2 to 2 "average price changes" Δt) from the last 100 order book events. We test the paper's four findings on a secondary venue with hidden liquidity and add three experiments beyond the paper.
