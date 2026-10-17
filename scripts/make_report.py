@@ -232,21 +232,22 @@ def main():
     cross.round(4).to_csv(args.out / "table5_cross_section.csv", index=False)
     print("\nTable 5 analogue (univariate, HC0):\n" + cross.round(3).to_string(index=False))
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5.2), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.6), sharey=True)
+    all_r2 = pd.DataFrame(r2)
     for ax, name, label in ((axes[0], "tick_size", "Tick size (fraction of time with a one-tick spread)"),
                             (axes[1], "log_updates_per_price_change", "log(updates / price changes)")):
-        for model in [m for m in ("arx", "lstm", "cnn_lstm") if m in r2]:
+        for model in r2:
             frame = characteristics.join(r2[model].rename("r2"), how="inner")
-            ax.scatter(frame[name], frame["r2"], s=55, color=COLORS[model], label=f"{MODELS[model]} ({len(frame)})", alpha=0.85)
-            if model == "arx":
-                for ticker, row in frame.iterrows():
-                    ax.annotate(ticker, (row[name], row["r2"]), xytext=(3, 3), textcoords="offset points", fontsize=9, color="#555")
+            ax.scatter(frame[name], frame["r2"], s=45, color=COLORS[model], label=f"{MODELS[model]} ({len(frame)})", alpha=0.85)
+        for ticker, top in all_r2.max(axis=1).items():
+            ax.annotate(ticker, (characteristics.loc[ticker, name], top), xytext=(0, 7), textcoords="offset points",
+                        fontsize=9, color="#555", ha="center")
         ax.axhline(0, color="black", linewidth=0.8)
         ax.set_xlabel(label)
         ax.grid(alpha=0.25)
     axes[0].set_ylabel("Per-stock mean R²$_{OS}$ (%)")
-    axes[0].legend(frameon=False)
-    fig.suptitle("Predictability and stock characteristics")
+    axes[1].legend(frameon=False, loc="upper left", bbox_to_anchor=(1.01, 1))
+    fig.suptitle("Predictability and stock characteristics, OF input")
     fig.tight_layout()
     fig.savefig(args.out / "fig5_cross_section.png", dpi=200)
     plt.close(fig)
