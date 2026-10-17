@@ -1,6 +1,6 @@
 # Deviations from the paper
 
-Kolm, Turiel, Westray (2023), *Deep Order Flow Imbalance*. One row per deviation: what, why, and the expected or observed effect.
+Kolm, Turiel, Westray (2023), *Deep Order Flow Imbalance*.
 
 | # | What | Why | Effect |
 |---|---|---|---|
