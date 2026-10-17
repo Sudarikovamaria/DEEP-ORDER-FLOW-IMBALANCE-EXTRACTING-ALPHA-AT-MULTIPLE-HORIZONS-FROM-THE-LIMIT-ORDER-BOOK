@@ -1,0 +1,16 @@
+model,stocks,regressor,coef,t_stat,adj_r2,spearman
+ARX,11,tick_size,0.9932,3.0565,0.5666,0.8455
+ARX,11,log_updates,0.0582,0.143,-0.1092,-0.0364
+ARX,11,log_trades,0.5456,1.4463,0.0663,0.3
+ARX,11,log_price_changes,-0.475,-3.1046,0.346,-0.6455
+ARX,11,log_updates_per_price_change,0.6658,3.0422,0.5511,0.8
+LSTM,6,tick_size,1.475,8.9382,0.8464,0.9429
+LSTM,6,log_updates,-0.6891,-3.9198,0.0563,-0.6
+LSTM,6,log_trades,0.3906,0.9938,-0.1372,0.3714
+LSTM,6,log_price_changes,-0.5762,-4.984,0.7876,-0.7714
+LSTM,6,log_updates_per_price_change,0.8049,7.7323,0.8415,0.8857
+CNN-LSTM,6,tick_size,1.1665,5.6092,0.6743,0.9429
+CNN-LSTM,6,log_updates,-0.6093,-4.6093,0.0728,-0.6
+CNN-LSTM,6,log_trades,0.4042,1.1067,-0.0871,0.3714
+CNN-LSTM,6,log_price_changes,-0.4686,-4.0885,0.6747,-0.7714
+CNN-LSTM,6,log_updates_per_price_change,0.6357,4.6814,0.6679,0.8857
