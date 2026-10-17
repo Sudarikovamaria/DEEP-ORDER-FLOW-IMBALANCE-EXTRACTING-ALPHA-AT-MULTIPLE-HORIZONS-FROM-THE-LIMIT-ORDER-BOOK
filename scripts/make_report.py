@@ -144,18 +144,22 @@ def cross_section_table(r2_by_model, characteristics):
 
 
 def save_term_structure(daily_by_model, path, title):
-    fig, ax = plt.subplots(figsize=(10, 5.6))
-    for model, daily in daily_by_model.items():
-        curve = term_structure(daily)
-        n = daily["ticker"].nunique()
-        ax.plot(curve.index, curve.values, marker="o", color=COLORS[model], label=f"{MODELS[model]} ({n} stocks)", linewidth=2)
+    curves = {model: term_structure(daily) for model, daily in daily_by_model.items()}
+    counts = {model: daily["ticker"].nunique() for model, daily in daily_by_model.items()}
+    same_count = len(set(counts.values())) == 1
+    fig, ax = plt.subplots(figsize=(11, 5.6))
+    # Legend order follows the curves at the longest horizon, top to bottom.
+    for model in sorted(curves, key=lambda m: curves[m].iloc[-1], reverse=True):
+        curve = curves[model]
+        label = MODELS[model] if same_count else f"{MODELS[model]} ({counts[model]} stocks)"
+        ax.plot(curve.index, curve.values, marker="o", color=COLORS[model], label=label, linewidth=2)
     ax.axhline(0, color="black", linewidth=0.8)
     ax.set_xticks(curve.index)
     ax.set_xlabel("Horizon (fraction of an average price change, Δt)")
     ax.set_ylabel("Mean R²$_{OS}$ (%)")
     ax.set_title(title)
     ax.grid(alpha=0.25)
-    ax.legend(frameon=False)
+    ax.legend(frameon=False, loc="center left", bbox_to_anchor=(1.01, 0.5))
     fig.tight_layout()
     fig.savefig(path, dpi=200)
     plt.close(fig)
