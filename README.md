@@ -1,56 +1,56 @@
-# Deep Order Flow Imbalance на IEX DEEP
+# Deep Order Flow Imbalance on IEX DEEP
 
-Репликация статьи Kolm, Turiel, Westray, *Deep Order Flow Imbalance: Extracting Alpha at Multiple Horizons from the Limit Order Book* (SSRN 3900141, 2021; Mathematical Finance 33(4), 2023) на данных биржи IEX вместо Nasdaq/LOBSTER.
+A replication of Kolm, Turiel and Westray, *Deep Order Flow Imbalance: Extracting Alpha at Multiple Horizons from the Limit Order Book* (SSRN 3900141, 2021; Mathematical Finance 33(4), 2023), on IEX exchange data instead of Nasdaq/LOBSTER.
 
-Нейросети и линейная модель прогнозируют доходность mid-price сразу на 10 горизонтах (от 0,2 до 2 «средних изменений цены» Δt) по последним 100 событиям стакана. Мы проверяем четыре вывода статьи на второстепенной бирже с невидимой ликвидностью и добавляем три эксперимента сверх неё.
+Neural networks and a linear model forecast mid-price returns at 10 horizons at once (from 0.2 to 2 "average price changes" Δt) from the last 100 order book events. We test the paper's four findings on a secondary venue with hidden liquidity and add three experiments beyond the paper.
 
-## Результаты
+## Results
 
-Средний R²<sub>OS</sub> на тесте, вход OF (order flow), 6 акций × 3 rolling-окна, 15 тестовых дней на акцию. Сначала среднее по дням для каждой акции, затем по акциям, как в Figure 2 статьи.
+Mean out-of-sample R²<sub>OS</sub>, OF (order flow) input, 6 stocks × 3 rolling windows, 15 test days per stock. As in Figure 2 of the paper, R²<sub>OS</sub> is first averaged over days for each stock, then over stocks.
 
-| Модель | Средний R²<sub>OS</sub> | Горизонт 0,2Δt | 1Δt | 2Δt | Акций со значимым R²<sub>OS</sub> > 0 (1%) |
+| Model | Mean R²<sub>OS</sub> | Horizon 0.2Δt | 1Δt | 2Δt | Stocks with R²<sub>OS</sub> significantly > 0 (1%) |
 |---|---|---|---|---|---|
-| CNN-LSTM | **0,35%** | 0,15% | 0,37% | 0,43% | 5 из 6 |
-| LSTM-MLP | 0,33% | 0,11% | 0,35% | 0,42% | 4 |
-| LSTM | 0,30% | 0,14% | 0,32% | 0,40% | 3 |
-| ARX (ridge) | 0,27% | 0,15% | 0,29% | 0,33% | 3 |
-| LSTM (3) | 0,26% | 0,05% | 0,28% | 0,35% | 3 |
-| MLP | 0,17% | 0,07% | 0,19% | 0,20% | 3 |
-| *Ансамбль ARX + CNN-LSTM (расширение)* | *0,39%* | *0,21%* | *0,41%* | *0,47%* | *5* |
+| CNN-LSTM | **0.35%** | 0.15% | 0.37% | 0.43% | 5 of 6 |
+| LSTM-MLP | 0.33% | 0.11% | 0.35% | 0.42% | 4 |
+| LSTM | 0.30% | 0.14% | 0.32% | 0.40% | 3 |
+| ARX (ridge) | 0.27% | 0.15% | 0.29% | 0.33% | 3 |
+| LSTM (3) | 0.26% | 0.05% | 0.28% | 0.35% | 3 |
+| MLP | 0.17% | 0.07% | 0.19% | 0.20% | 3 |
+| *ARX + CNN-LSTM ensemble (extension)* | *0.39%* | *0.21%* | *0.41%* | *0.47%* | *5* |
 
-![R²OS по горизонтам](results/report/fig2_term_structure.png)
+![R²OS by horizon](results/report/fig2_term_structure.png)
 
-### Выводы статьи на данных IEX
+### The paper's findings on IEX data
 
-1. **OF лучше сырого стакана (LOB).** Проверено для двух моделей, как в Table 3 статьи: ARX (обучение как в статье, Adam) −0,25% на OF против −0,52% на LOB; MLP +0,17% против −2,38%. В обоих случаях OF лучше на 5 акциях из 6 (исключение — small-tick UBER), но при 15 тестовых днях значима на уровне 1% только одна разница (MLP, BAC). Нейросети с LSTM на LOB не обучались из-за вычислительного бюджета (отклонение 9).
-2. **Модели с LSTM лучше линейных.** Воспроизведено. Первые три места те же, что в Figure 3 статьи: CNN-LSTM, LSTM-MLP и LSTM; по среднему R²<sub>OS</sub> порядок как у авторов, по средним рангам первые два меняются местами (LSTM-MLP 2,63, CNN-LSTM 2,83; в статье 2,9 и 2,6). LSTM (3) четвёртая, как в статье. CNN-LSTM обходит ARX на 5 акциях из 6, на BAC и NKE значимо на уровне 1%. Единственное расхождение: у нас MLP ниже ARX, у авторов выше, потому что наша ridge-ARX сильнее их ARX (см. расширения).
-3. **R²<sub>OS</sub> растёт примерно до 2Δt.** Воспроизведено для всех моделей.
-4. **Предсказуемость выше у large-tick акций.** Воспроизведено: ранговая корреляция R²<sub>OS</sub> LSTM с тик-сайзом +0,94, с log(обновлений / изменений цены) +0,89; знаки всех регрессий Table 5 совпадают со статьёй (`results/report/table5_cross_section.csv`).
+1. **OF beats raw order book states (LOB).** Tested for two models, as in Table 3 of the paper: ARX (trained like the paper, with Adam) −0.25% on OF vs −0.52% on LOB; MLP +0.17% vs −2.38%. In both cases OF is better for 5 of 6 stocks (the exception is the small-tick UBER), but with 15 test days only one difference is significant at 1% (MLP, BAC). LSTM-based models were not trained on LOB because of the compute budget (deviation 9).
+2. **Models with an LSTM beat linear models.** Reproduced. The top three are the same as in Figure 3 of the paper: CNN-LSTM, LSTM-MLP and LSTM. By mean R²<sub>OS</sub> they come in the paper's order; by average rank the first two swap places (LSTM-MLP 2.63, CNN-LSTM 2.83; 2.9 and 2.6 in the paper). LSTM (3) is fourth, as in the paper. CNN-LSTM beats ARX for 5 of 6 stocks, significantly at 1% for BAC and NKE. The one discrepancy: our MLP ranks below ARX, while the paper's ranks above, because our ridge ARX is stronger than the paper's ARX (see the extensions).
+3. **R²<sub>OS</sub> rises up to about 2Δt.** Reproduced for all models.
+4. **Large-tick stocks are more predictable.** Reproduced: the rank correlation of the LSTM's R²<sub>OS</sub> with tick size is +0.94, and with log(updates / price changes) +0.89; all Table 5 regressions have the paper's signs (`results/report/table5_cross_section.csv`).
 
-Масштаб R²<sub>OS</sub> ниже, чем у авторов (~1–1,5% на Nasdaq): IEX видит только свою, небольшую часть ликвидности. У large-tick акций лучшие модели дают 0,6–0,8% (BAC, NKE).
+R²<sub>OS</sub> is lower than in the paper (~1–1.5% on Nasdaq): IEX sees only its own, small share of liquidity. For large-tick stocks the best models reach 0.6–0.8% (BAC, NKE).
 
-### Appendix B: OFI вместо OF
+### Appendix B: OFI instead of OF
 
-- LSTM на OFI ≈ на OF (0,31% против 0,30%), как в статье.
-- ARX, обученная как в статье (Adam): OFI значимо лучше OF на 4 акциях из 6 (−0,25% → +0,05%) — эффект статьи воспроизведён. С ridge-регрессией разницы нет (0,27% и 0,28%): штраф уже подавляет переобучение, ради которого в статье помогает сокращение признаков.
-- MLP на OFI хуже, чем на OF (0,09% против 0,17%), в статье наоборот.
+- LSTM on OFI ≈ LSTM on OF (0.31% vs 0.30%), as in the paper.
+- ARX trained like the paper (Adam): OFI is significantly better than OF for 4 of 6 stocks (−0.25% → +0.05%), which reproduces the paper's effect. With ridge regression there is no difference (0.27% and 0.28%): the penalty already suppresses the overfitting that fewer features fix in the paper.
+- MLP on OFI is worse than on OF (0.09% vs 0.17%); the paper finds the opposite.
 
-### Расширения (сверх статьи)
+### Extensions (beyond the paper)
 
-- **Ансамбль**: простое среднее прогнозов ARX и CNN-LSTM, без подбора весов. Лучше обеих моделей на всех горизонтах: 0,39% против 0,35% и 0,27%.
-- **Одна ARX на все 11 акций** вместо отдельной на каждую (вопрос универсальности, который статья не изучает). В среднем не хуже, но на large-tick акциях (BAC, NKE, VZ) значимо проигрывает: у них сильный собственный сигнал.
-- **ARX: ridge против Adam.** Ridge сильнее и на OF (0,27% против −0,25%), и на OFI (0,28% против 0,05%), поэтому выигрыш нейросетей над нашей ARX скромнее, чем был бы над ARX из статьи.
+- **Ensemble**: a plain average of the ARX and CNN-LSTM forecasts, with no weight tuning. Better than both models at every horizon: 0.39% vs 0.35% and 0.27%.
+- **One ARX for all 11 stocks** instead of one per stock (the universality question the paper leaves aside). No worse on average, but significantly worse for large-tick stocks (BAC, NKE, VZ), which carry a strong stock-specific signal.
+- **ARX: ridge vs Adam.** Ridge is stronger on both OF (0.27% vs −0.25%) and OFI (0.28% vs 0.05%), so the neural networks' gain over our ARX is smaller than it would be over the paper's ARX.
 
-## Данные
+## Data
 
-- **IEX DEEP** (стакан по ценовым уровням, только видимые заявки) из бесплатного архива IEX HIST. Data provided for free by IEX. [IEX Historical Data Terms of Use](https://www.iex.io/products/market-data-connectivity/hist-terms).
-- **Период**: 12 недель, 20 июля – 9 октября 2026 года (59 торговых дней), три rolling-окна по схеме статьи: неделя validation, четыре недели train, неделя test, сдвиг на три недели.
-- **Акции** (`configs/tickers.yaml`): правило отбора — обычная акция, Δt ≥ 180 мс, ≥ 300 тыс. событий стакана в день, по дню перед периодом. ARX считается на 11 акциях, нейросети на 6 (BAC, VZ, NKE, USB, OXY, UBER).
-- **Датасет v1**: только очищенные стаканы (`data/book/{TICKER}/{date}.parquet`) и характеристики дней (`data/meta/…`), ~4 ГБ; признаки и таргеты считаются из них на лету. Сырые данные и датасет в репозиторий не коммитятся.
+- **IEX DEEP** (price-level order book, displayed orders only) from the free IEX HIST archive. Data provided for free by IEX. [IEX Historical Data Terms of Use](https://www.iex.io/products/market-data-connectivity/hist-terms).
+- **Period**: 12 weeks, 20 July – 9 October 2026 (59 trading days), three rolling windows following the paper: one validation week, four training weeks, one test week, moved forward by three weeks.
+- **Stocks** (`configs/tickers.yaml`): common stocks with Δt ≥ 180 ms and ≥ 300k book events per day, selected on the day before the period. ARX runs on 11 stocks, the neural networks on 6 (BAC, VZ, NKE, USB, OXY, UBER).
+- **Dataset v1**: only clean books (`data/book/{TICKER}/{date}.parquet`) and day characteristics (`data/meta/…`), ~4 GB; inputs and targets are computed from them on the fly. Raw data and the dataset are not committed.
 
-Все отклонения от статьи и решения там, где она не уточняет, перечислены в [DEVIATIONS.md](DEVIATIONS.md).
+Every deviation from the paper, and every decision where the paper is silent, is listed in [DEVIATIONS.md](DEVIATIONS.md) (in Russian).
 
-## Как запустить
+## How to run
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -58,7 +58,7 @@ python -m pip install -r requirements.txt
 pytest -q
 ```
 
-Обучение и оценка одной модели на трёх окнах (датасет v1 распакован в `~/data/deepofi_dataset_v1`):
+Train and evaluate one model on the three windows (dataset v1 unpacked to `~/data/deepofi_dataset_v1`):
 
 ```bash
 python scripts/freeze_dataset.py --verify --root ~/data/deepofi_dataset_v1
@@ -66,27 +66,27 @@ python -m deepofi.cli train --model cnn_lstm --ticker BAC --input of --data-root
 python scripts/make_report.py --data-root ~/data/deepofi_dataset_v1
 ```
 
-Модели: `arx`, `mlp`, `lstm`, `lstm3`, `lstm_mlp`, `cnn_lstm`; входы: `of`, `lob`, `ofi`. Для LSTM, LSTM (3), LSTM-MLP и MLP используется `--learning-rate 1e-4` (отклонение 13), для LSTM (3) ещё `--epochs 12`. ARX по умолчанию решается ridge-регрессией в замкнутой форме; `--sgd` обучает её через Adam, как в статье. Результаты пишутся в `results/{model}/{input}/{ticker}/window_0N/` (`history.csv`, `metrics.csv` с недельными и дневными R²<sub>OS</sub>), веса в `weights/`.
+Models: `arx`, `mlp`, `lstm`, `lstm3`, `lstm_mlp`, `cnn_lstm`; inputs: `of`, `lob`, `ofi`. LSTM, LSTM (3), LSTM-MLP and MLP use `--learning-rate 1e-4` (deviation 13), and LSTM (3) also `--epochs 12`. By default ARX is solved by closed-form ridge regression; `--sgd` trains it with Adam like the paper. Results go to `results/{model}/{input}/{ticker}/window_0N/` (`history.csv`, and `metrics.csv` with weekly and daily R²<sub>OS</sub>), weights to `weights/`.
 
-Сборка датасета с нуля (несколько сотен ГБ трафика, ~10 часов):
+Building the dataset from scratch (several hundred GB of downloads, ~10 hours):
 
 ```bash
-python scripts/overnight.py                      # загрузка дня отбора и периода, извлечение кандидатов
-python scripts/build_dataset.py data/records/2026*.bin --tickers BAC VZ NKE USB OXY UBER
-python scripts/freeze_dataset.py                 # MANIFEST.json с контрольными суммами
+python scripts/overnight.py                      # download the selection day and the period, extract candidate stocks
+python scripts/build_dataset.py data/records/2026*.bin --tickers DIS CTSH UBER MO NEE OXY USB BSX NKE VZ BAC
+python scripts/freeze_dataset.py                 # MANIFEST.json with checksums
 ```
 
-## Структура
+## Layout
 
 ```
 src/deepofi/
-  iex/            парсер IEX DEEP (pcap/pcapng, IEX-TP) и загрузка HIST
-  data_process/   стакан, очистка, OF/LOB/OFI, таргеты, окна, нормализация, отбор акций
+  iex/            IEX DEEP parser (pcap/pcapng, IEX-TP) and HIST download
+  data_process/   order book, cleaning, OF/LOB/OFI, targets, windows, normalization, stock selection
   models/         ARX, MLP, LSTM, LSTM (3), LSTM-MLP, CNN-LSTM
-  evaluation/     R²OS (недельный и дневной), сравнение моделей
-  cli.py          train / evaluate / predict по трём окнам
-scripts/          загрузка, пилот, сборка и заморозка датасета, отчёт, расширения
-configs/          параметры конвейера и список акций
-results/          метрики всех прогонов и рисунки отчёта (results/report)
-tests/            тесты конвейера и моделей
+  evaluation/     R²OS (weekly and daily), model comparison
+  cli.py          train / evaluate / predict over the three windows
+scripts/          download, pilot, dataset build and freeze, report, extensions
+configs/          pipeline parameters and the stock list
+results/          metrics of every run and the report figures (results/report)
+tests/            pipeline and model tests
 ```
